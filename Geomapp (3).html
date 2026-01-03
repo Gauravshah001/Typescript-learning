@@ -298,6 +298,8 @@ Ranking */
  
  
 <script>
+  let rankingLegendData = [];
+
   const genderOptionMap = {
   male: 913020000,
   female: 913020001,
@@ -588,6 +590,8 @@ async function RankingloadData() {
   });
 
   loadGeoJson(incidenceMap, max, rankMap);
+  rankingLegendData = rankingArray.slice(0, 5); // store top 5
+
 }
 
 
@@ -733,18 +737,40 @@ function addLegend(max) {
   window.legend.onAdd = () => {
     const div = L.DomUtil.create("div", "legend");
 
+    /* 🏆 RANKING MODE — REAL DATA */
+    if (currentDisplay === "ranking") {
+      div.innerHTML = "<strong>Ranking</strong><br>";
+
+      rankingLegendData.forEach((item, index) => {
+        const color = HeatmapgetColor(item.count, max);
+
+        const suffix =
+          index === 0 ? "st" :
+          index === 1 ? "nd" :
+          index === 2 ? "rd" : "th";
+
+        div.innerHTML += `
+          <i style="background:${color}"></i>
+          ${index + 1}${suffix} (${item.count})
+          <br>
+        `;
+      });
+
+      return div;
+    }
+
+    /* 🔵 HEATMAP / MOST COMMON */
     div.innerHTML =
       `<strong>${currentDisplay === "heatmap" ? "Value" : "Incidence"}</strong><br>`;
 
-    [0.1,0.2,0.4,0.6,0.8].forEach(r => {
+    [0.1, 0.2, 0.4, 0.6, 0.8].forEach(r => {
       const v = Math.round(r * max);
       const color =
         currentDisplay === "heatmap"
           ? HeatmapgetColor(v, max)
           : getColor(v, max);
 
-      div.innerHTML +=
-        `<i style="background:${color}"></i>${v}+<br>`;
+      div.innerHTML += `<i style="background:${color}"></i>${v}+<br>`;
     });
 
     return div;
@@ -752,6 +778,7 @@ function addLegend(max) {
 
   window.legend.addTo(map);
 }
+
 
  
 /* =========================
