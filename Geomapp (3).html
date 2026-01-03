@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Disease Heatmap</title>
+ 
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+ 
+  <style>
+
+    .print-mode .container {
+  display: block;
+}
+
+.print-mode #mapExportWrapper {
+  width: 100vw;
+  height: 100vh;
+}
+
+.print-mode #map {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+#mapExportWrapper {
+  flex: 1.4;
+  height: 100vh;
+  position: relative;
+}
+
+.print-mode .filters {
+  display: none;
+}
+
+.print-mode #map {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+
+   html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: Segoe UI, Arial, sans-serif;
+  overflow: hidden; /* prevents scrolling */
+}
+ 
+ 
+    .container {
+      display: flex;
+      height: 100vh;
+    }
+ 
+    /* LEFT FILTER PANEL */
+    .filters {
+      width: 260px;
+      padding: 15px;
+      background: #f4f6f8;
+      border-right: 1px solid #ddd;
+    }
+ 
+    .filters h3 {
+      margin-top: 0;
+      font-size: 16px;
+    }
+ 
+    .filters label {
+      font-size: 13px;
+      margin-top: 12px;
+      display: block;
+    }
+ 
+    .filters select {
+      width: 100%;
+      padding: 6px;
+      margin-top: 5px;
+    }
+ 
+    /* MAP */
+    #map {
+      flex: 1;
+       width: 100%;
+  height: 100%;
+    }
+ 
+    /* LEGEND */
+    .legend {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: white;
+      padding: 10px;
+      font-size: 12px;
+      line-height: 18px;
+      border-radius: 4px;
+      box-shadow: 0 0 6px rgba(0,0,0,0.3);
+    }
+ 
+    .legend i {
+      width: 18px;
+      height: 18px;
+      float: left;
+      margin-right: 8px;
+      opacity: 0.8;
+    }
+ 
+ 
+ 
+    /* table css stat  */
+ 
+ 
+ 
+    #tableContainer {
+      width : 100%;
+  background: #ffffff;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+ 
+/* TABLE BASE */
+#dataTable {
+  width: 100%;
+  min-width: 100%;
+  table-layout: fixed;   /* important */
+  border-collapse: separate;
+  border-spacing: 0 8px;
+}
+/* HEADER */
+#dataTable thead th {
+  background: #1f2a44;
+  color: #ffffff;
+  text-align: left;
+  padding: 10px 14px;
+  font-weight: 600;
+  border-radius: 4px;
+}
+ 
+/* BODY ROW */
+#dataTable tbody tr {
+  background: #f9fafb;
+  transition: background 0.2s ease;
+}
+ 
+/* ROW HOVER */
+#dataTable tbody tr:hover {
+  background: #eef2f7;
+}
+ 
+/* CELLS */
+#dataTable td {
+  padding: 10px 14px;
+  border-top: 1px solid #e1e6ef;
+  border-bottom: 1px solid #e1e6ef;
+}
+ 
+/* FIRST & LAST CELL ROUNDING */
+#dataTable td:first-child {
+  border-left: 1px solid #e1e6ef;
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+ 
+#dataTable td:last-child {
+  border-right: 1px solid #e1e6ef;
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+ 
+/* EMPTY STATE */
+#dataTable tbody td[colspan] {
+  text-align: center;
+  font-style: italic;
+  color: #777;
+}
+ 
+    /* table css end   */
+/* Start :- Display Heatmap
+Most comm.
+Ranking */
+ 
+    .display-tabs {
+  display: flex;
+  border: 1px solid #cfd6df;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 15px;
+}
+ 
+.tab-btn {
+  flex: 1;
+  padding: 8px 6px;
+  font-size: 13px;
+  background: #ffffff;
+  border: none;
+  border-right: 1px solid #cfd6df;
+  cursor: pointer;
+  color: #555;
+}
+ 
+.tab-btn:last-child {
+  border-right: none;
+}
+ 
+.tab-btn.active {
+  background: #1f2a44;
+  color: #fff;
+  font-weight: 600;
+}
+ 
+.tab-btn:hover:not(.active) {
+  background: #f0f3f7;
+}
+/* END :- Display Heatmap
+Most comm.
+Ranking */
+  </style>
+</head>
+ 
+<body>
+<div class="container">
+ 
+  <!-- FILTER PANEL -->
+  <div class="filters">
+    <h3>Filters</h3>
+ <label style="margin-bottom:6px;">Display</label>
+ 
+<div class="display-tabs display-mode">
+  <button class="tab-btn">Heatmap</button>
+  <button class="tab-btn active">Most comm.</button>
+  <button class="tab-btn">Ranking</button>
+</div>
+    <!-- <label>Gender</label>
+    <select id="genderFilter">
+      <option value="">Both</option>
+      <option value="male">Male</option>
+      <option value="female">Female</option>
+    </select> -->
+
+   <label>Gender</label>
+
+<div class="display-tabs gender-tabs">
+  <button class="tab-btn active" data-value="both">Both</button>
+  <button class="tab-btn" data-value="male">Male</button>
+  <button class="tab-btn" data-value="female">Female</button>
+</div>
+
+
+<input type="hidden" id="genderFilter" value="">
+
+    <label style="margin-top:14px;">View Type</label>
+ 
+<div class="display-tabs view-tabs">
+  <button class="tab-btn active">Graphical</button>
+  <button class="tab-btn">Table</button>
+</div>
+ 
+ 
+    <label>Age Group</label>
+    <select id="ageFilter">
+      <option value="">All Ages</option>
+      <option value="0-18">0–18</option>
+      <option value="19-40">19–40</option>
+      <option value="41-60">41–60</option>
+      <option value="60+">60+</option>
+    </select>
+    <button id="downloadBtn"
+        style="margin-top:20px;width:100%;padding:8px;cursor:pointer;">
+  Download PDF
+</button>
+ 
+  </div>
+ 
+  <!-- MAP -->
+   <div id="mapExportWrapper">
+  <div id="map"></div>
+  </div>
+ 
+  <div id="tableContainer" style="display:none; padding:10px; overflow:auto;">
+  <table id="dataTable" style="width:100%; border-collapse:collapse;">
+    <thead>
+      <tr>
+        <th>Country</th>
+        <th>Gender</th>
+        <th>Age Group</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+</div>
+
+ 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+ 
+ 
+<script>
+  const genderOptionMap = {
+  male: 913020000,
+  female: 913020001,
+   both: 913020002
+};
+
+    let currentDisplay = "most"; // most | heatmap | ranking
+
+    const mostCommonPalette = [
+  "#E53935", // red
+  "#1E88E5", // blue
+  "#FDD835", // yellow
+  "#D81B60", // pink
+  "#FB8C00", // orange
+  "#43A047", // green
+  "#8E24AA", // purple
+  "#00897B", // teal
+  "#6D4C41", // brown
+  "#546E7A"  // blue-grey
+];
+
+
+/* =========================
+   MAP INIT
+========================= */
+ 
+/* =========================
+   MAP INIT (STATIC MAP)
+========================= */
+ 
+const map = L.map("map", {
+  zoomControl: false,
+  attributionControl: false,
+  dragging: false,
+  scrollWheelZoom: false,
+  doubleClickZoom: false,
+  boxZoom: false,
+  keyboard: false,
+  touchZoom: false,
+  renderer: L.canvas()   // 🔑 THIS FIXES EXPORT
+}).setView([20, 0], 2);
+ 
+// Lock zoom completely
+map.setMinZoom(2);
+map.setMaxZoom(2);
+ 
+// Lock world bounds (prevents any movement)
+const bounds = [
+  [-90, -180],
+  [90, 180]
+];
+ 
+map.setMaxBounds(bounds);
+map.on("drag", function () {
+  map.panInsideBounds(bounds, { animate: false });
+});
+ 
+// Base map (still needed for tiles)
+//L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  noWrap: true,
+  bounds: [
+    [-90, -180],
+    [90, 180]
+  ]
+}).addTo(map);
+
+let geoLayer;
+ 
+ 
+/* =========================
+   NORMALIZATION
+========================= */
+ 
+function normalize(val) {
+  if (!val) return "";
+  let v = val
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, "")
+    .trim();
+ 
+  return countryAlias[v] || v;
+}
+ 
+ 
+const countryAlias = {
+  "usa": "united states of america",
+  "u s a": "united states of america",
+  "us": "united states of america",
+  "u s": "united states of america",
+ 
+  "uk": "united kingdom",
+  "u k": "united kingdom",
+ 
+  "russia": "russian federation",
+  "south korea": "korea republic of",
+  "north korea": "korea democratic peoples republic of",
+ 
+  "iran": "iran islamic republic of",
+  "vietnam": "viet nam",
+  "laos": "lao peoples democratic republic",
+  "bolivia": "bolivia plurinational state of",
+  "tanzania": "tanzania united republic of"
+};
+ 
+ 
+/* =========================
+   COLOR SCALE
+========================= */
+ 
+function getColor(v, max) {
+  if (!v) return "#ECECEC";
+  const r = Math.log(v + 1) / Math.log(max + 1);
+ 
+  return r > 0.8 ? "#67000D" :
+         r > 0.6 ? "#A50F15" :
+         r > 0.4 ? "#CB181D" :
+         r > 0.2 ? "#EF3B2C" :
+         r > 0.1 ? "#FB6A4A" :
+                   "#FCAE91";
+}
+function HeatmapgetColor(v, max) {
+  if (!v) return "#ECECEC";
+  const r = Math.log(v + 1) / Math.log(max + 1);
+  return r > 0.8 ? "#08306B" :
+         r > 0.6 ? "#2171B5" :
+         r > 0.4 ? "#4292C6" :
+         r > 0.2 ? "#6BAED6" :
+         r > 0.1 ? "#9ECAE1" : "#C6DBEF";
+}
+
+ 
+/* =========================
+   LOAD DATA WITH FILTERS
+========================= */
+ 
+async function loadData() {
+ 
+  if (geoLayer) map.removeLayer(geoLayer);
+ 
+  const gender = document.getElementById("genderFilter").value;
+  const age = document.getElementById("ageFilter").value;
+ 
+  let filter = "?$select=rnr_location";
+ 
+  if (gender)
+    filter += `&$filter=rnr_sex eq ${genderOptionMap[gender]}`;
+ 
+  if (age)
+    filter += gender
+      ? ` and rnr_age eq '${age}'`
+      : `&$filter=rnr_age eq '${age}'`;
+ 
+  const response = await parent.Xrm.WebApi.retrieveMultipleRecords(
+    "rnr_diseaseprevalence",
+    filter
+  );
+ 
+  const incidenceMap = {};
+  let max = 0;
+ 
+  response.entities.forEach(r => {
+    if (!r.rnr_location) return;
+    const c = normalize(r.rnr_location);
+    incidenceMap[c] = (incidenceMap[c] || 0) + 1;
+    max = Math.max(max, incidenceMap[c]);
+  });
+ // assign color index based on most common order
+const colorIndexMap = {};
+let i = 0;
+
+Object.keys(incidenceMap)
+  .sort((a, b) => incidenceMap[b] - incidenceMap[a])
+  .forEach(country => {
+    colorIndexMap[country] = i++;
+  });
+
+loadGeoJson(incidenceMap, max, {}, colorIndexMap);
+
+  //loadGeoJson(incidenceMap, max);
+  setTimeout(() => map.invalidateSize(true), 0);
+
+}
+
+
+
+async function HeatMaploadData() {
+  if (geoLayer) map.removeLayer(geoLayer);
+
+  const gender = document.getElementById("genderFilter").value;
+  const age = document.getElementById("ageFilter").value;
+
+  let filter = "?$select=rnr_location,rnr_value";
+
+  if (gender)
+    filter += `&$filter=rnr_sex eq ${genderOptionMap[gender]}`;
+
+  if (age)
+    filter += gender
+      ? ` and rnr_age eq '${age}'`
+      : `&$filter=rnr_age eq '${age}'`;
+
+  const response = await parent.Xrm.WebApi.retrieveMultipleRecords(
+    "rnr_diseaseprevalence",
+    filter
+  );
+
+  const incidenceMap = {};
+  let max = 0;
+
+  response.entities.forEach(r => {
+
+    if (!r.rnr_location || r.rnr_value == null) return;
+
+    const c = normalize(r.rnr_location);
+
+    const val = parseFloat(r.rnr_value) || 0;
+    incidenceMap[c] = (incidenceMap[c] || 0) + val;
+
+    max = Math.max(max, incidenceMap[c]);
+  });
+
+  loadGeoJson(incidenceMap, max);
+  setTimeout(() => map.invalidateSize(true), 0);
+
+}
+
+async function RankingloadData() {
+
+  if (geoLayer) map.removeLayer(geoLayer);
+
+  const gender = document.getElementById("genderFilter").value;
+  const age = document.getElementById("ageFilter").value;
+
+  let filter = "?$select=rnr_location,rnr_condition";
+
+  if (gender)
+    filter += `&$filter=rnr_sex eq ${genderOptionMap[gender]}`;
+
+  if (age)
+    filter += gender
+      ? ` and rnr_age eq '${age}'`
+      : `&$filter=rnr_age eq '${age}'`;
+
+  const response = await parent.Xrm.WebApi.retrieveMultipleRecords(
+    "rnr_diseaseprevalence",
+    filter
+  );
+
+  /**
+   * Collect unique conditions per country
+   */
+  const countryConditionMap = {};
+
+  response.entities.forEach(r => {
+    if (!r.rnr_location || !r.rnr_condition) return;
+
+    const country = normalize(r.rnr_location);
+
+    if (!countryConditionMap[country]) {
+      countryConditionMap[country] = new Set();
+    }
+
+    countryConditionMap[country].add(r.rnr_condition);
+  });
+
+  /**
+   * Convert to sortable array
+   */
+  const rankingArray = Object.entries(countryConditionMap)
+    .map(([country, conditions]) => ({
+      country,
+      count: conditions.size
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  /**
+   * Build incidenceMap + rankMap
+   */
+  const incidenceMap = {};
+  const rankMap = {};
+  let max = 0;
+
+  rankingArray.forEach((item, index) => {
+    incidenceMap[item.country] = item.count;
+    rankMap[item.country] = index + 1; // 🏆 Rank number
+    max = Math.max(max, item.count);
+  });
+
+  loadGeoJson(incidenceMap, max, rankMap);
+}
+
+
+/* =========================
+   LOAD GEOJSON
+========================= */
+ 
+//function loadGeoJson(incidenceMap, max) {
+//function loadGeoJson(incidenceMap, max, rankMap = {}) {
+function loadGeoJson(incidenceMap, max, rankMap = {}, colorIndexMap = {}) {
+
+
+  fetch("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json")
+    .then(r => r.json())
+    .then(geo => {
+ 
+      /*geo.features.forEach(f => {
+        f.properties.incidence =
+          incidenceMap[normalize(f.properties.name)] || 0;
+      });
+
+      geo.features.forEach(f => {
+  const key = normalize(f.properties.name);
+
+  f.properties.incidence = incidenceMap[key] || 0;
+  f.properties.rank = rankMap[key] || null; // ⭐ rank
+});*/geo.features.forEach(f => {
+  const key = normalize(f.properties.name);
+
+  f.properties.incidence = incidenceMap[key] || 0;
+  f.properties.rank = rankMap[key] || null;
+  f.properties.colorIndex = colorIndexMap[key] ?? null;
+});
+
+
+ geoLayer = L.geoJson(geo, {
+  renderer: L.canvas(),
+
+  style: f => ({
+   fillColor: (() => {
+
+  // 🏆 RANKING → blue heatmap (unchanged)
+  if (currentDisplay === "ranking") {
+    if (!f.properties.incidence) return "#ECECEC";
+    return HeatmapgetColor(f.properties.incidence, max);
+  }
+
+  // 🔵 HEATMAP → blue scale (unchanged)
+  if (currentDisplay === "heatmap") {
+    return HeatmapgetColor(f.properties.incidence, max);
+  }
+
+  // 🌈 MOST COMMON → categorical colors
+  if (!f.properties.incidence) return "#ECECEC";
+
+  const idx = f.properties.colorIndex ?? 0;
+  return mostCommonPalette[idx % mostCommonPalette.length];
+
+})(),
+
+    weight: 0.6,        // thin borders (like before)
+    color: "#8C8C8C",   // neutral grey outline (NOT blue)
+    opacity: 1,
+    fillOpacity: 0.85
+  }),
+
+  onEachFeature: (f, l) => {
+    l.bindTooltip(
+      `<b>${f.properties.name}</b><br/>
+       ${
+         currentDisplay === "ranking"
+           ? `Rank: <b>${f.properties.rank}</b><br/>Conditions: ${f.properties.incidence}`
+           : `Incidence: ${f.properties.incidence}`
+       }`,
+      { sticky: true }
+    );
+  }
+}).addTo(map);
+
+     /*geoLayer = L.geoJson(geo, {
+  renderer: L.canvas(), // 🔑 REQUIRED
+  style: f => ({
+
+          //fillColor: getColor(f.properties.incidence, max),
+           style: f => ({
+  fillColor: (() => {
+
+    if (currentDisplay === "ranking") {
+      if (f.properties.incidence == null) {
+        return "#ECECEC"; // non-ranked
+      }
+      return HeatmapgetColor(f.properties.incidence, max);
+    }
+
+    if (currentDisplay === "heatmap") {
+      return HeatmapgetColor(f.properties.incidence, max);
+    }
+
+    // most common (for now)
+    return getColor(f.properties.incidence, max);
+
+  })(),
+
+  weight: 0.6,          // 👈 thinner border
+  color: "#8C8C8C",     // 👈 FORCE grey outline
+  opacity: 1,           // 👈 outline opacity
+  fillOpacity: 0.85
+}),
+
+
+        }),
+        onEachFeature: (f, l) => {
+          /*l.bindTooltip(
+            `<b>${f.properties.name}</b><br/>
+             Incidence: ${f.properties.incidence}`,
+            { sticky: true }
+          );
+
+          l.bindTooltip(
+  `<b>${f.properties.name}</b><br/>
+   ${
+     currentDisplay === "ranking"
+       ? `Rank: <b>${f.properties.rank}</b><br/>Conditions: ${f.properties.incidence}`
+       : `Incidence: ${f.properties.incidence}`
+   }`,
+  { sticky: true }
+);
+
+        }
+      }).addTo(map);*/
+ 
+      addLegend(max);
+      setTimeout(() => map.invalidateSize(true), 100);
+
+    });
+}
+ 
+
+function addLegend(max) {
+  if (window.legend) map.removeControl(window.legend);
+
+  window.legend = L.control({ position: "bottomright" });
+  window.legend.onAdd = () => {
+    const div = L.DomUtil.create("div", "legend");
+
+    div.innerHTML =
+      `<strong>${currentDisplay === "heatmap" ? "Value" : "Incidence"}</strong><br>`;
+
+    [0.1,0.2,0.4,0.6,0.8].forEach(r => {
+      const v = Math.round(r * max);
+      const color =
+        currentDisplay === "heatmap"
+          ? HeatmapgetColor(v, max)
+          : getColor(v, max);
+
+      div.innerHTML +=
+        `<i style="background:${color}"></i>${v}+<br>`;
+    });
+
+    return div;
+  };
+
+  window.legend.addTo(map);
+}
+
+ 
+/* =========================
+   FILTER EVENTS
+========================= */
+ 
+/*document.getElementById("genderFilter").addEventListener("change", () => {
+  loadData();
+  updateTable(); // new function
+});*/
+
+/*document.getElementById("ageFilter").addEventListener("change", () => {
+  loadData();
+  updateTable(); // new function
+});*/
+document.getElementById("ageFilter").addEventListener("change", () => {
+  if (currentDisplay === "heatmap") {
+    HeatMaploadData();
+  } 
+  else if (currentDisplay === "ranking") {
+    RankingloadData();
+  }
+  else {
+    loadData();
+  }
+
+  updateTable();
+});
+
+
+
+ 
+/* =========================
+   START
+========================= */
+ 
+loadData();
+document.getElementById("downloadBtn").addEventListener("click", async () => {
+
+  const mapWrapper = document.getElementById("mapExportWrapper");
+  const originalParent = mapWrapper.parentNode;
+  const nextSibling = mapWrapper.nextSibling;
+
+  // 1️⃣ Enable export layout
+  document.body.classList.add("print-mode");
+
+  // 2️⃣ Move map OUT of flex layout
+  document.body.appendChild(mapWrapper);
+
+  // 3️⃣ Force full screen
+  mapWrapper.style.position = "fixed";
+  mapWrapper.style.top = "0";
+  mapWrapper.style.left = "0";
+  mapWrapper.style.width = "100vw";
+  mapWrapper.style.height = "100vh";
+  mapWrapper.style.zIndex = "9999";
+  mapWrapper.style.background = "#fff";
+
+  map.invalidateSize(true);
+  await new Promise(r => setTimeout(r, 700));
+
+  // 4️⃣ Capture
+  const canvas = await html2canvas(mapWrapper, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: "#ffffff"
+  });
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF("landscape", "mm", "a4");
+
+  const w = pdf.internal.pageSize.getWidth();
+  const h = pdf.internal.pageSize.getHeight();
+
+  pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, w, h);
+  pdf.save("Disease_Heatmap.pdf");
+
+  // 5️⃣ RESTORE EVERYTHING
+  mapWrapper.style = "";
+  document.body.classList.remove("print-mode");
+
+  if (nextSibling) {
+    originalParent.insertBefore(mapWrapper, nextSibling);
+  } else {
+    originalParent.appendChild(mapWrapper);
+  }
+
+  map.invalidateSize(true);
+});
+
+
+
+
+ 
+ 
+ 
+// Graphical And Table View Toggle
+document.addEventListener("DOMContentLoaded", function () {
+ 
+  document.querySelectorAll(".view-tabs .tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+ 
+      document.querySelectorAll(".view-tabs .tab-btn")
+        .forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+ 
+      const text = btn.innerText.trim();
+ 
+     if (text === "Graphical") {
+  document.getElementById("mapExportWrapper").style.display = "block";
+  document.getElementById("tableContainer").style.display = "none";
+
+  setTimeout(() => {
+    map.invalidateSize(true);
+  }, 300);
+}
+
+      if (text === "Table") {
+  document.getElementById("mapExportWrapper").style.display = "none";
+  document.getElementById("tableContainer").style.display = "block";
+  updateTable(); // silently updates table in case filter changed
+}
+
+ 
+    });
+  });
+ 
+});
+ document.querySelectorAll(".gender-tabs .tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+
+    // UI state
+    document.querySelectorAll(".gender-tabs .tab-btn")
+      .forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    // Set gender value
+    document.getElementById("genderFilter").value =
+      btn.dataset.value;
+
+    // Reload based on current display
+    if (currentDisplay === "heatmap") {
+  HeatMaploadData();
+}
+else if (currentDisplay === "ranking") {
+  RankingloadData();
+}
+else {
+  loadData();
+}
+
+
+    updateTable();
+  });
+});
+
+
+ 
+ 
+ 
+ 
+ 
+function buildFilterQuery() {
+  const gender = document.getElementById("genderFilter").value;
+  const age = document.getElementById("ageFilter").value;
+ 
+ // let filter = "?$select=rnr_location,rnr_sex,rnr_age";
+ let filter = "?$select=rnr_location,rnr_sex,rnr_age";
+
+  if (gender)
+    filter += `&$filter=rnr_sex eq ${genderOptionMap[gender]}`;
+ 
+  if (age)
+    filter += gender
+      ? ` and rnr_age eq '${age}'`
+      : `&$filter=rnr_age eq '${age}'`;
+ 
+  return filter;
+}
+ 
+ 
+// Show Data in Table Format
+async function updateTable() {
+  const filter = buildFilterQuery();
+
+  try {
+    const response = await parent.Xrm.WebApi.retrieveMultipleRecords(
+      "rnr_diseaseprevalence",
+      filter
+    );
+
+    const tbody = document.querySelector("#dataTable tbody");
+    tbody.innerHTML = "";
+
+    if (!response.entities || response.entities.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="3">No data found</td></tr>`;
+      return;
+    }
+
+    response.entities.forEach(r => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${r.rnr_location ?? "-"}</td>
+        <td>${r["rnr_sex@OData.Community.Display.V1.FormattedValue"] ?? "-"}</td>
+        <td>${r.rnr_age ?? "-"}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (error) {
+    console.error("Table load error:", error);
+  }
+}
+
+
+// Display Tabs (Heatmap / Most common / Ranking)
+// Display Tabs (Heatmap / Most comm. / Ranking)
+document.querySelectorAll(".display-mode .tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+
+    document.querySelectorAll(".display-mode .tab-btn")
+      .forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    const text = btn.innerText.trim();
+
+    if (text === "Heatmap") {
+      currentDisplay = "heatmap";
+      HeatMaploadData();
+    }
+
+    if (text === "Most comm.") {
+      currentDisplay = "most";
+      loadData();
+    }
+
+    if (text === "Ranking") {
+  currentDisplay = "ranking";
+  RankingloadData();
+}
+
+  });
+});
+
+ 
+</script>
+</body>
+</html>
+ 
