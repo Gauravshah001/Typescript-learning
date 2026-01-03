@@ -648,10 +648,13 @@ function loadGeoJson(incidenceMap, max, rankMap = {}, colorIndexMap = {}) {
   style: f => ({
    fillColor: (() => {
 
-  // 🏆 RANKING → blue heatmap (unchanged)
- 
+  // 🏆 RANKING → blue heatmap by condition count
+  if (currentDisplay === "ranking") {
+    if (!f.properties.incidence) return "#ECECEC";
+    return HeatmapgetColor(f.properties.incidence, max);
+  }
 
-  // 🔵 HEATMAP → blue scale (unchanged)
+  // 🔵 HEATMAP → blue scale
   if (currentDisplay === "heatmap") {
     return HeatmapgetColor(f.properties.incidence, max);
   }
@@ -663,6 +666,7 @@ function loadGeoJson(incidenceMap, max, rankMap = {}, colorIndexMap = {}) {
   return mostCommonPalette[idx % mostCommonPalette.length];
 
 })(),
+
 
     weight: 0.6,        // thin borders (like before)
     color: "#8C8C8C",   // neutral grey outline (NOT blue)
