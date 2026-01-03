@@ -275,19 +275,6 @@ Ranking */
   <!-- MAP -->
    <div id="mapExportWrapper">
   <div id="map"></div>
-  <div id="incidenceBox" style="
-  position:absolute;
-  top:20px;
-  left:20px;
-  background:#ffffff;
-  padding:8px 10px;
-  border-radius:4px;
-  box-shadow:0 2px 6px rgba(0,0,0,0.2);
-  font-size:13px;
-  z-index:999;
-">
-</div>
-
   </div>
  
   <div id="tableContainer" style="display:none; padding:10px; overflow:auto;">
@@ -442,36 +429,7 @@ function HeatmapgetColor(v, max) {
          r > 0.1 ? "#9ECAE1" : "#C6DBEF";
 }
 
- function updateRankingIncidenceBox(rankingArray, max) {
-  const box = document.getElementById("incidenceBox");
-  if (!box) return;
-
-  box.innerHTML = `<strong>Ranking</strong><br>`;
-
-  rankingArray.slice(0, 5).forEach((item, index) => {
-    const color = HeatmapgetColor(item.count, max);
-
-    const suffix =
-      index === 0 ? "st" :
-      index === 1 ? "nd" :
-      index === 2 ? "rd" : "th";
-
-    box.innerHTML += `
-      <div style="display:flex;align-items:center;margin-top:4px;">
-        <span style="
-          width:14px;
-          height:14px;
-          background:${color};
-          display:inline-block;
-          margin-right:6px;
-        "></span>
-        <b>${index + 1}${suffix}</b>
-        &nbsp;(${item.count})
-      </div>
-    `;
-  });
-}
-
+ 
 /* =========================
    LOAD DATA WITH FILTERS
 ========================= */
@@ -630,8 +588,6 @@ async function RankingloadData() {
   });
 
   loadGeoJson(incidenceMap, max, rankMap);
-  updateRankingIncidenceBox(rankingArray, max);
-
 }
 
 
@@ -777,18 +733,35 @@ function addLegend(max) {
   window.legend.onAdd = () => {
     const div = L.DomUtil.create("div", "legend");
 
+    /* 🔵 RANKING MODE */
+    if (currentDisplay === "ranking") {
+      div.innerHTML = "<strong>Ranking</strong><br>";
+
+      const ranks = ["1st", "2nd", "3rd", "4th", "5th"];
+      ranks.forEach((label, i) => {
+        const value = max - i;
+        const color = HeatmapgetColor(value, max);
+
+        div.innerHTML += `
+          <i style="background:${color}"></i>${label}<br>
+        `;
+      });
+
+      return div;
+    }
+
+    /* 🔵 HEATMAP / MOST COMMON */
     div.innerHTML =
       `<strong>${currentDisplay === "heatmap" ? "Value" : "Incidence"}</strong><br>`;
 
-    [0.1,0.2,0.4,0.6,0.8].forEach(r => {
+    [0.1, 0.2, 0.4, 0.6, 0.8].forEach(r => {
       const v = Math.round(r * max);
       const color =
         currentDisplay === "heatmap"
           ? HeatmapgetColor(v, max)
           : getColor(v, max);
 
-      div.innerHTML +=
-        `<i style="background:${color}"></i>${v}+<br>`;
+      div.innerHTML += `<i style="background:${color}"></i>${v}+<br>`;
     });
 
     return div;
@@ -796,6 +769,7 @@ function addLegend(max) {
 
   window.legend.addTo(map);
 }
+
 
  
 /* =========================
