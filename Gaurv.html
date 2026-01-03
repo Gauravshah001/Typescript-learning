@@ -275,24 +275,6 @@ Ranking */
   <!-- MAP -->
    <div id="mapExportWrapper">
   <div id="map"></div>
- <div id="incidenceBox" style="
-  position: absolute;
-  bottom: 20px;
-  left: 20px;
-  max-width: 320px;
-  padding: 8px 10px;
-  background: #fff;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-  font-size: 13px;
-  border-radius: 4px;
-  z-index: 1000;
-">
-</div>
-
-
   </div>
  
   <div id="tableContainer" style="display:none; padding:10px; overflow:auto;">
@@ -447,7 +429,36 @@ function HeatmapgetColor(v, max) {
          r > 0.1 ? "#9ECAE1" : "#C6DBEF";
 }
 
- 
+ function updateRankingIncidenceBox(rankingArray, max) {
+  const box = document.getElementById("incidenceBox");
+  if (!box) return;
+
+  box.innerHTML = `<strong>Ranking</strong><br>`;
+
+  rankingArray.slice(0, 5).forEach((item, index) => {
+    const color = HeatmapgetColor(item.count, max);
+
+    const suffix =
+      index === 0 ? "st" :
+      index === 1 ? "nd" :
+      index === 2 ? "rd" : "th";
+
+    box.innerHTML += `
+      <div style="display:flex;align-items:center;margin-top:4px;">
+        <span style="
+          width:14px;
+          height:14px;
+          background:${color};
+          display:inline-block;
+          margin-right:6px;
+        "></span>
+        <b>${index + 1}${suffix}</b>
+        &nbsp;(${item.count})
+      </div>
+    `;
+  });
+}
+
 /* =========================
    LOAD DATA WITH FILTERS
 ========================= */
@@ -606,6 +617,8 @@ async function RankingloadData() {
   });
 
   loadGeoJson(incidenceMap, max, rankMap);
+  updateRankingIncidenceBox(rankingArray, max);
+
 }
 
 
@@ -640,24 +653,20 @@ function loadGeoJson(incidenceMap, max, rankMap = {}, colorIndexMap = {}) {
   f.properties.colorIndex = colorIndexMap[key] ?? null;
 });
 
- if (currentDisplay === "ranking") {
-  updateRankingIncidenceBox(rankMap, incidenceMap);
-} else {
-  updateIncidenceBox(max);
-}
+
  geoLayer = L.geoJson(geo, {
   renderer: L.canvas(),
 
   style: f => ({
    fillColor: (() => {
 
-  // 🏆 RANKING → blue heatmap by condition count
+  // 🏆 RANKING → blue heatmap (unchanged)
   if (currentDisplay === "ranking") {
     if (!f.properties.incidence) return "#ECECEC";
     return HeatmapgetColor(f.properties.incidence, max);
   }
 
-  // 🔵 HEATMAP → blue scale
+  // 🔵 HEATMAP → blue scale (unchanged)
   if (currentDisplay === "heatmap") {
     return HeatmapgetColor(f.properties.incidence, max);
   }
@@ -669,7 +678,6 @@ function loadGeoJson(incidenceMap, max, rankMap = {}, colorIndexMap = {}) {
   return mostCommonPalette[idx % mostCommonPalette.length];
 
 })(),
-
 
     weight: 0.6,        // thin borders (like before)
     color: "#8C8C8C",   // neutral grey outline (NOT blue)
@@ -748,12 +756,6 @@ function loadGeoJson(incidenceMap, max, rankMap = {}, colorIndexMap = {}) {
     });
 }
  
-function updateIncidenceBox(max) {
-  const box = document.getElementById("incidenceBox");
-  if (!box) return;
-
-  box.innerHTML = `<b>Max incidence:</b> ${max}`;
-}
 
 function addLegend(max) {
   if (window.legend) map.removeControl(window.legend);
@@ -763,22 +765,14 @@ function addLegend(max) {
     const div = L.DomUtil.create("div", "legend");
 
     div.innerHTML =
-      //`<strong>${currentDisplay === "heatmap" ? "Value" : "Incidence"}</strong><br>`;
-`<strong>${
-  currentDisplay === "ranking"
-    ? "No. of Conditions"
-    : currentDisplay === "heatmap"
-      ? "Value"
-      : "Incidence"
-}</strong>`
+      `<strong>${currentDisplay === "heatmap" ? "Value" : "Incidence"}</strong><br>`;
 
     [0.1,0.2,0.4,0.6,0.8].forEach(r => {
       const v = Math.round(r * max);
       const color =
-  currentDisplay === "most"
-    ? getColor(v, max)
-    : HeatmapgetColor(v, max);
-
+        currentDisplay === "heatmap"
+          ? HeatmapgetColor(v, max)
+          : getColor(v, max);
 
       div.innerHTML +=
         `<i style="background:${color}"></i>${v}+<br>`;
@@ -789,54 +783,8 @@ function addLegend(max) {
 
   window.legend.addTo(map);
 }
-function updateRankingIncidenceBox(rankMap, incidenceMap) {
-  const box = document.getElementById("incidenceBox");
-  if (!box) return;
 
-  box.innerHTML = "";
-
-  // Convert to sortable array
-  const rankedList = Object.keys(rankMap)
-    .map(country => ({
-      country,
-      rank: rankMap[country],
-      count: incidenceMap[country] || 0
-    }))
-    .sort((a, b) => a.rank - b.rank);
-
-  if (rankedList.length === 0) {
-    box.innerHTML = "<em>No ranking data</em>";
-    return;
-  }
-
-  const maxCount = Math.max(...rankedList.map(r => r.count));
-
-  // Show top 10 (change if needed)
-  rankedList.slice(0, 10).forEach(item => {
-    const row = document.createElement("div");
-    row.style.display = "flex";
-    row.style.alignItems = "center";
-    row.style.gap = "6px";
-
-    const colorBox = document.createElement("div");
-    colorBox.style.width = "18px";
-    colorBox.style.height = "18px";
-    colorBox.style.borderRadius = "3px";
-    colorBox.style.border = "1px solid #666";
-    colorBox.style.background =
-      HeatmapgetColor(item.count, maxCount);
-
-    const label = document.createElement("span");
-    label.innerHTML = `<b>${item.rank}${rankSuffix(item.rank)}</b>
- (${item.count} conditions)`;
-
-    row.appendChild(colorBox);
-    row.appendChild(label);
-    box.appendChild(row);
-  });
-}
-
-
+ 
 /* =========================
    FILTER EVENTS
 ========================= */
