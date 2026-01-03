@@ -241,7 +241,7 @@ Ranking */
    <label>Gender</label>
 
 <div class="display-tabs gender-tabs">
-  <button class="tab-btn active" data-value="Both">Both</button>
+  <button class="tab-btn active" data-value="both">Both</button>
   <button class="tab-btn" data-value="male">Male</button>
   <button class="tab-btn" data-value="female">Female</button>
 </div>
@@ -275,6 +275,21 @@ Ranking */
   <!-- MAP -->
    <div id="mapExportWrapper">
   <div id="map"></div>
+  <div id="incidenceBox" style="
+    width: 100%;
+    padding: 8px 10px;
+    background: #fff;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    margin-top: 6px;
+    font-size: 13px;
+    border-radius: 4px;
+    gap: 8px;
+"></div>
+
   </div>
  
   <div id="tableContainer" style="display:none; padding:10px; overflow:auto;">
@@ -305,6 +320,20 @@ Ranking */
 };
 
     let currentDisplay = "most"; // most | heatmap | ranking
+
+    const mostCommonPalette = [
+  "#E53935", // red
+  "#1E88E5", // blue
+  "#FDD835", // yellow
+  "#D81B60", // pink
+  "#FB8C00", // orange
+  "#43A047", // green
+  "#8E24AA", // purple
+  "#00897B", // teal
+  "#6D4C41", // brown
+  "#546E7A"  // blue-grey
+];
+
 
 /* =========================
    MAP INIT
@@ -451,8 +480,19 @@ async function loadData() {
     incidenceMap[c] = (incidenceMap[c] || 0) + 1;
     max = Math.max(max, incidenceMap[c]);
   });
- 
-  loadGeoJson(incidenceMap, max);
+ // assign color index based on most common order
+const colorIndexMap = {};
+let i = 0;
+
+Object.keys(incidenceMap)
+  .sort((a, b) => incidenceMap[b] - incidenceMap[a])
+  .forEach(country => {
+    colorIndexMap[country] = i++;
+  });
+
+loadGeoJson(incidenceMap, max, {}, colorIndexMap);
+
+  //loadGeoJson(incidenceMap, max);
   setTimeout(() => map.invalidateSize(true), 0);
 
 }
@@ -571,7 +611,9 @@ async function RankingloadData() {
 ========================= */
  
 //function loadGeoJson(incidenceMap, max) {
-function loadGeoJson(incidenceMap, max, rankMap = {}) {
+//function loadGeoJson(incidenceMap, max, rankMap = {}) {
+function loadGeoJson(incidenceMap, max, rankMap = {}, colorIndexMap = {}) {
+
 
   fetch("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json")
     .then(r => r.json())
@@ -580,36 +622,47 @@ function loadGeoJson(incidenceMap, max, rankMap = {}) {
       /*geo.features.forEach(f => {
         f.properties.incidence =
           incidenceMap[normalize(f.properties.name)] || 0;
-      });*/
+      });
 
       geo.features.forEach(f => {
   const key = normalize(f.properties.name);
 
   f.properties.incidence = incidenceMap[key] || 0;
   f.properties.rank = rankMap[key] || null; // ⭐ rank
+});*/geo.features.forEach(f => {
+  const key = normalize(f.properties.name);
+
+  f.properties.incidence = incidenceMap[key] || 0;
+  f.properties.rank = rankMap[key] || null;
+  f.properties.colorIndex = colorIndexMap[key] ?? null;
 });
 
+ if (currentDisplay === "ranking") {
+  updateRankingIncidenceBox(rankMap, incidenceMap);
+} else {
+  updateIncidenceBox(max);
+}
  geoLayer = L.geoJson(geo, {
   renderer: L.canvas(),
 
   style: f => ({
-    fillColor: (() => {
+   fillColor: (() => {
 
-      // 🔵 RANKING → blue heatmap scale (by condition count)
-      if (currentDisplay === "ranking") {
-        if (!f.properties.incidence) return "#ECECEC";
-        return HeatmapgetColor(f.properties.incidence, max);
-      }
+  // 🏆 RANKING → blue heatmap (unchanged)
+ 
 
-      // 🔵 HEATMAP → blue scale (by value)
-      if (currentDisplay === "heatmap") {
-        return HeatmapgetColor(f.properties.incidence, max);
-      }
+  // 🔵 HEATMAP → blue scale (unchanged)
+  if (currentDisplay === "heatmap") {
+    return HeatmapgetColor(f.properties.incidence, max);
+  }
 
-      // 🔴 MOST COMMON → red scale
-      return getColor(f.properties.incidence, max);
+  // 🌈 MOST COMMON → categorical colors
+  if (!f.properties.incidence) return "#ECECEC";
 
-    })(),
+  const idx = f.properties.colorIndex ?? 0;
+  return mostCommonPalette[idx % mostCommonPalette.length];
+
+})(),
 
     weight: 0.6,        // thin borders (like before)
     color: "#8C8C8C",   // neutral grey outline (NOT blue)
@@ -688,6 +741,12 @@ function loadGeoJson(incidenceMap, max, rankMap = {}) {
     });
 }
  
+function updateIncidenceBox(max) {
+  const box = document.getElementById("incidenceBox");
+  if (!box) return;
+
+  box.innerHTML = `<b>Max incidence:</b> ${max}`;
+}
 
 function addLegend(max) {
   if (window.legend) map.removeControl(window.legend);
@@ -715,8 +774,54 @@ function addLegend(max) {
 
   window.legend.addTo(map);
 }
+function updateRankingIncidenceBox(rankMap, incidenceMap) {
+  const box = document.getElementById("incidenceBox");
+  if (!box) return;
 
- 
+  box.innerHTML = "";
+
+  // Convert to sortable array
+  const rankedList = Object.keys(rankMap)
+    .map(country => ({
+      country,
+      rank: rankMap[country],
+      count: incidenceMap[country] || 0
+    }))
+    .sort((a, b) => a.rank - b.rank);
+
+  if (rankedList.length === 0) {
+    box.innerHTML = "<em>No ranking data</em>";
+    return;
+  }
+
+  const maxCount = Math.max(...rankedList.map(r => r.count));
+
+  // Show top 10 (change if needed)
+  rankedList.slice(0, 10).forEach(item => {
+    const row = document.createElement("div");
+    row.style.display = "flex";
+    row.style.alignItems = "center";
+    row.style.gap = "6px";
+
+    const colorBox = document.createElement("div");
+    colorBox.style.width = "18px";
+    colorBox.style.height = "18px";
+    colorBox.style.borderRadius = "3px";
+    colorBox.style.border = "1px solid #666";
+    colorBox.style.background =
+      HeatmapgetColor(item.count, maxCount);
+
+    const label = document.createElement("span");
+    label.innerHTML = `<b>${item.rank}${rankSuffix(item.rank)}</b>
+ (${item.count} conditions)`;
+
+    row.appendChild(colorBox);
+    row.appendChild(label);
+    box.appendChild(row);
+  });
+}
+
+
 /* =========================
    FILTER EVENTS
 ========================= */
@@ -962,5 +1067,4 @@ document.querySelectorAll(".display-mode .tab-btn").forEach(btn => {
 </script>
 </body>
 </html>
-
-
+ 
