@@ -589,26 +589,77 @@ function loadGeoJson(incidenceMap, max, rankMap = {}) {
   f.properties.rank = rankMap[key] || null; // ⭐ rank
 });
 
- 
-     geoLayer = L.geoJson(geo, {
+ geoLayer = L.geoJson(geo, {
+  renderer: L.canvas(),
+
+  style: f => ({
+    fillColor: (() => {
+
+      // 🔵 RANKING → blue heatmap scale (by condition count)
+      if (currentDisplay === "ranking") {
+        if (!f.properties.incidence) return "#ECECEC";
+        return HeatmapgetColor(f.properties.incidence, max);
+      }
+
+      // 🔵 HEATMAP → blue scale (by value)
+      if (currentDisplay === "heatmap") {
+        return HeatmapgetColor(f.properties.incidence, max);
+      }
+
+      // 🔴 MOST COMMON → red scale
+      return getColor(f.properties.incidence, max);
+
+    })(),
+
+    weight: 0.6,        // thin borders (like before)
+    color: "#8C8C8C",   // neutral grey outline (NOT blue)
+    opacity: 1,
+    fillOpacity: 0.85
+  }),
+
+  onEachFeature: (f, l) => {
+    l.bindTooltip(
+      `<b>${f.properties.name}</b><br/>
+       ${
+         currentDisplay === "ranking"
+           ? `Rank: <b>${f.properties.rank}</b><br/>Conditions: ${f.properties.incidence}`
+           : `Incidence: ${f.properties.incidence}`
+       }`,
+      { sticky: true }
+    );
+  }
+}).addTo(map);
+
+     /*geoLayer = L.geoJson(geo, {
   renderer: L.canvas(), // 🔑 REQUIRED
   style: f => ({
 
           //fillColor: getColor(f.properties.incidence, max),
-           fillColor: (() => {
+           style: f => ({
+  fillColor: (() => {
 
-  if (currentDisplay === "heatmap") {
-    return HeatmapgetColor(f.properties.incidence, max);
-  }
+    if (currentDisplay === "ranking") {
+      if (f.properties.incidence == null) {
+        return "#ECECEC"; // non-ranked
+      }
+      return HeatmapgetColor(f.properties.incidence, max);
+    }
 
-  if (currentDisplay === "ranking") {
-    return HeatmapgetColor(f.properties.incidence, max); // 🔵 SAME BLUE
-  }
+    if (currentDisplay === "heatmap") {
+      return HeatmapgetColor(f.properties.incidence, max);
+    }
 
-  // Most common (default for now)
-  return getColor(f.properties.incidence, max);
+    // most common (for now)
+    return getColor(f.properties.incidence, max);
 
-})(),
+  })(),
+
+  weight: 0.6,          // 👈 thinner border
+  color: "#8C8C8C",     // 👈 FORCE grey outline
+  opacity: 1,           // 👈 outline opacity
+  fillOpacity: 0.85
+}),
+
 
         }),
         onEachFeature: (f, l) => {
@@ -616,7 +667,7 @@ function loadGeoJson(incidenceMap, max, rankMap = {}) {
             `<b>${f.properties.name}</b><br/>
              Incidence: ${f.properties.incidence}`,
             { sticky: true }
-          );*/
+          );
 
           l.bindTooltip(
   `<b>${f.properties.name}</b><br/>
@@ -629,7 +680,7 @@ function loadGeoJson(incidenceMap, max, rankMap = {}) {
 );
 
         }
-      }).addTo(map);
+      }).addTo(map);*/
  
       addLegend(max);
       setTimeout(() => map.invalidateSize(true), 100);
@@ -911,4 +962,5 @@ document.querySelectorAll(".display-mode .tab-btn").forEach(btn => {
 </script>
 </body>
 </html>
- 
+
+
