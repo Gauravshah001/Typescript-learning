@@ -226,7 +226,7 @@ Ranking */
     <h3>Filters</h3>
  <label style="margin-bottom:6px;">Display</label>
  
-<div class="display-tabs">
+<div class="display-tabs display-mode">
   <button class="tab-btn">Heatmap</button>
   <button class="tab-btn active">Most comm.</button>
   <button class="tab-btn">Ranking</button>
@@ -241,7 +241,7 @@ Ranking */
    <label>Gender</label>
 
 <div class="display-tabs gender-tabs">
-  <button class="tab-btn active" data-value="">Both</button>
+  <button class="tab-btn active" data-value="Both">Both</button>
   <button class="tab-btn" data-value="male">Male</button>
   <button class="tab-btn" data-value="female">Female</button>
 </div>
@@ -301,7 +301,7 @@ Ranking */
   const genderOptionMap = {
   male: 913020000,
   female: 913020001,
-  Both:913020002
+   both: 913020002
 };
 
     let currentDisplay = "most"; // most | heatmap | ranking
@@ -414,6 +414,7 @@ function HeatmapgetColor(v, max) {
          r > 0.2 ? "#6BAED6" :
          r > 0.1 ? "#9ECAE1" : "#C6DBEF";
 }
+
  
 /* =========================
    LOAD DATA WITH FILTERS
@@ -499,40 +500,134 @@ async function HeatMaploadData() {
 
 }
 
+async function RankingloadData() {
+
+  if (geoLayer) map.removeLayer(geoLayer);
+
+  const gender = document.getElementById("genderFilter").value;
+  const age = document.getElementById("ageFilter").value;
+
+  let filter = "?$select=rnr_location,rnr_condition";
+
+  if (gender)
+    filter += `&$filter=rnr_sex eq ${genderOptionMap[gender]}`;
+
+  if (age)
+    filter += gender
+      ? ` and rnr_age eq '${age}'`
+      : `&$filter=rnr_age eq '${age}'`;
+
+  const response = await parent.Xrm.WebApi.retrieveMultipleRecords(
+    "rnr_diseaseprevalence",
+    filter
+  );
+
+  /**
+   * Collect unique conditions per country
+   */
+  const countryConditionMap = {};
+
+  response.entities.forEach(r => {
+    if (!r.rnr_location || !r.rnr_condition) return;
+
+    const country = normalize(r.rnr_location);
+
+    if (!countryConditionMap[country]) {
+      countryConditionMap[country] = new Set();
+    }
+
+    countryConditionMap[country].add(r.rnr_condition);
+  });
+
+  /**
+   * Convert to sortable array
+   */
+  const rankingArray = Object.entries(countryConditionMap)
+    .map(([country, conditions]) => ({
+      country,
+      count: conditions.size
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  /**
+   * Build incidenceMap + rankMap
+   */
+  const incidenceMap = {};
+  const rankMap = {};
+  let max = 0;
+
+  rankingArray.forEach((item, index) => {
+    incidenceMap[item.country] = item.count;
+    rankMap[item.country] = index + 1; // 🏆 Rank number
+    max = Math.max(max, item.count);
+  });
+
+  loadGeoJson(incidenceMap, max, rankMap);
+}
+
+
 /* =========================
    LOAD GEOJSON
 ========================= */
  
-function loadGeoJson(incidenceMap, max) {
+//function loadGeoJson(incidenceMap, max) {
+function loadGeoJson(incidenceMap, max, rankMap = {}) {
+
   fetch("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json")
     .then(r => r.json())
     .then(geo => {
  
-      geo.features.forEach(f => {
+      /*geo.features.forEach(f => {
         f.properties.incidence =
           incidenceMap[normalize(f.properties.name)] || 0;
-      });
+      });*/
+
+      geo.features.forEach(f => {
+  const key = normalize(f.properties.name);
+
+  f.properties.incidence = incidenceMap[key] || 0;
+  f.properties.rank = rankMap[key] || null; // ⭐ rank
+});
+
  
      geoLayer = L.geoJson(geo, {
   renderer: L.canvas(), // 🔑 REQUIRED
   style: f => ({
 
           //fillColor: getColor(f.properties.incidence, max),
-           fillColor:
-    currentDisplay === "heatmap"
-      ? HeatmapgetColor(f.properties.incidence, max)
-      : getColor(f.properties.incidence, max),
-         
-          weight: 1,
-          color: "#999",
-          fillOpacity: 0.8
+           fillColor: (() => {
+
+  if (currentDisplay === "heatmap") {
+    return HeatmapgetColor(f.properties.incidence, max);
+  }
+
+  if (currentDisplay === "ranking") {
+    return HeatmapgetColor(f.properties.incidence, max); // 🔵 SAME BLUE
+  }
+
+  // Most common (default for now)
+  return getColor(f.properties.incidence, max);
+
+})(),
+
         }),
         onEachFeature: (f, l) => {
-          l.bindTooltip(
+          /*l.bindTooltip(
             `<b>${f.properties.name}</b><br/>
              Incidence: ${f.properties.incidence}`,
             { sticky: true }
-          );
+          );*/
+
+          l.bindTooltip(
+  `<b>${f.properties.name}</b><br/>
+   ${
+     currentDisplay === "ranking"
+       ? `Rank: <b>${f.properties.rank}</b><br/>Conditions: ${f.properties.incidence}`
+       : `Incidence: ${f.properties.incidence}`
+   }`,
+  { sticky: true }
+);
+
         }
       }).addTo(map);
  
@@ -575,10 +670,10 @@ function addLegend(max) {
    FILTER EVENTS
 ========================= */
  
-document.getElementById("genderFilter").addEventListener("change", () => {
+/*document.getElementById("genderFilter").addEventListener("change", () => {
   loadData();
   updateTable(); // new function
-});
+});*/
 
 /*document.getElementById("ageFilter").addEventListener("change", () => {
   loadData();
@@ -587,11 +682,17 @@ document.getElementById("genderFilter").addEventListener("change", () => {
 document.getElementById("ageFilter").addEventListener("change", () => {
   if (currentDisplay === "heatmap") {
     HeatMaploadData();
-  } else {
+  } 
+  else if (currentDisplay === "ranking") {
+    RankingloadData();
+  }
+  else {
     loadData();
   }
+
   updateTable();
 });
+
 
 
  
@@ -672,7 +773,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const text = btn.innerText.trim();
  
      if (text === "Graphical") {
-  document.getElementById("map").style.display = "block";
+  document.getElementById("mapExportWrapper").style.display = "block";
   document.getElementById("tableContainer").style.display = "none";
 
   setTimeout(() => {
@@ -681,7 +782,7 @@ document.addEventListener("DOMContentLoaded", function () {
 }
 
       if (text === "Table") {
-  document.getElementById("map").style.display = "none";
+  document.getElementById("mapExportWrapper").style.display = "none";
   document.getElementById("tableContainer").style.display = "block";
   updateTable(); // silently updates table in case filter changed
 }
@@ -705,10 +806,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Reload based on current display
     if (currentDisplay === "heatmap") {
-      HeatMaploadData();
-    } else {
-      loadData();
-    }
+  HeatMaploadData();
+}
+else if (currentDisplay === "ranking") {
+  RankingloadData();
+}
+else {
+  loadData();
+}
+
 
     updateTable();
   });
@@ -725,7 +831,7 @@ function buildFilterQuery() {
   const age = document.getElementById("ageFilter").value;
  
  // let filter = "?$select=rnr_location,rnr_sex,rnr_age";
- let filter = "?$select=rnr_location,rnr_sex,rnr_age,rnr_sex@OData.Community.Display.V1.FormattedValue";
+ let filter = "?$select=rnr_location,rnr_sex,rnr_age";
 
   if (gender)
     filter += `&$filter=rnr_sex eq ${genderOptionMap[gender]}`;
@@ -794,9 +900,10 @@ document.querySelectorAll(".display-mode .tab-btn").forEach(btn => {
     }
 
     if (text === "Ranking") {
-      currentDisplay = "ranking";
-      loadData();
-    }
+  currentDisplay = "ranking";
+  RankingloadData();
+}
+
   });
 });
 
